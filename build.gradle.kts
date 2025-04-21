@@ -21,9 +21,9 @@ val lwjglNatives = Pair(
                 "natives-linux-riscv64"
             else
                 "natives-linux"
-        arrayOf("Windows").any { name.startsWith(it) }                ->
+        arrayOf("Windows").any { name.startsWith(it) } ->
             "natives-windows"
-        else                                                                            ->
+        else ->
             throw Error("Unrecognized or unsupported platform. Please set \"lwjglNatives\" manually")
     }
 }
