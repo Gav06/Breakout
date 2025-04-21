@@ -1,8 +1,12 @@
 package me.gavin.breakout.renderer
 
+import org.joml.Matrix2f
+import org.joml.Matrix3f
+import org.joml.Matrix4f
 import org.lwjgl.BufferUtils
 import org.lwjgl.opengl.GL20
 import org.lwjgl.opengl.GL30
+import java.nio.FloatBuffer
 import java.nio.IntBuffer
 
 // default constructor is to get the shader as a resource
@@ -22,6 +26,7 @@ class Shader(val shaderName: String, vararg uniforms: String) {
         val vs = GL20.glCreateShader(GL20.GL_VERTEX_SHADER)
         GL20.glShaderSource(vs, vSrc)
         GL20.glCompileShader(vs)
+        verifyCompilation(shaderName, vs)
 
         stream = Shader::class.java.getResource(fragPath)
             ?: throw RuntimeException("Unable to find frag shader resource: $fragPath")
@@ -30,11 +35,14 @@ class Shader(val shaderName: String, vararg uniforms: String) {
         val fs = GL20.glCreateShader(GL20.GL_FRAGMENT_SHADER)
         GL20.glShaderSource(fs, fSrc)
         GL20.glCompileShader(fs)
+        verifyCompilation(shaderName, fs)
+
 
         program = GL20.glCreateProgram()
         GL20.glAttachShader(program, vs)
         GL20.glAttachShader(program, fs)
         GL20.glLinkProgram(program)
+        Shader.verifyLinking(shaderName, program)
 
         GL20.glDetachShader(program, vs)
         GL20.glDetachShader(program, fs)
@@ -43,7 +51,7 @@ class Shader(val shaderName: String, vararg uniforms: String) {
 
         println("Compiled shader: $shaderName")
 
-        uniforms.forEach { setupUniform(it) }
+        uniforms.forEach { u -> setupUniform(u) }
     }
 
     fun bind() {
@@ -57,20 +65,14 @@ class Shader(val shaderName: String, vararg uniforms: String) {
     private fun setupUniform(uniform: String) {
         val uid = GL20.glGetUniformLocation(program, uniform)
         if (uid != -1) {
+            println("Setup uniform $shaderName:$uniform")
             uniformCache[uniform] = uid
         }
     }
 
     fun getUniformLocation(name: String): Int {
         // safeguard in case uniform we don't have cached is put into the program
-        return uniformCache.getOrPut(name) {
-            val loc = GL20.glGetUniformLocation(program, name)
-            if (loc == -1) {
-                error("Warning: Shader uniform $name not found in shader program $program ($shaderName)")
-            }
-
-            loc
-        }
+        return uniformCache[name] ?: throw IllegalStateException("Attempted to get unknown uniform: $shaderName:$name")
     }
 
     // Float uniforms
@@ -153,21 +155,26 @@ class Shader(val shaderName: String, vararg uniforms: String) {
     }
 
     // Matrix uniforms
-    fun setUniformMatrix2f(name: String, transpose: Boolean, matrix: org.joml.Matrix2f) {
+    fun setUniformMatrix2f(name: String, transpose: Boolean, matrix: Matrix2f) {
         val location = getUniformLocation(name)
         val buffer = BufferUtils.createFloatBuffer(4)
         matrix.get(buffer)
         GL20.glUniformMatrix2fv(location, transpose, buffer)
     }
 
-    fun setUniformMatrix3f(name: String, transpose: Boolean, matrix: org.joml.Matrix3f) {
+    fun setUniformMatrix3f(name: String, transpose: Boolean, matrix: Matrix3f) {
         val location = getUniformLocation(name)
         val buffer = BufferUtils.createFloatBuffer(9)
         matrix.get(buffer)
         GL20.glUniformMatrix3fv(location, transpose, buffer)
     }
 
-    fun setUniformMatrix4f(name: String, transpose: Boolean, matrix: org.joml.Matrix4f) {
+    fun setUniformMatrix4f(name: String, transpose: Boolean, matrixBuffer: FloatBuffer) {
+        val location = getUniformLocation(name)
+        GL20.glUniformMatrix4fv(location, transpose, matrixBuffer)
+    }
+
+    fun setUniformMatrix4f(name: String, transpose: Boolean, matrix: Matrix4f) {
         val location = getUniformLocation(name)
         val buffer = BufferUtils.createFloatBuffer(16)
         matrix.get(buffer)
@@ -175,7 +182,7 @@ class Shader(val shaderName: String, vararg uniforms: String) {
     }
 
     // Using MemoryStack for better performance (alternative matrix methods)
-    fun setUniformMatrix4fWithStack(name: String, transpose: Boolean, matrix: org.joml.Matrix4f) {
+    fun setUniformMatrix4fWithStack(name: String, transpose: Boolean, matrix: Matrix4f) {
         val location = getUniformLocation(name)
         org.lwjgl.system.MemoryStack.stackPush().use { stack ->
             val buffer = stack.mallocFloat(16)

@@ -1,8 +1,9 @@
 package me.gavin.breakout
 
+import me.gavin.breakout.renderer.IndexBuffer
+import me.gavin.breakout.renderer.QuadRenderer
 import me.gavin.breakout.renderer.Shader
-import org.joml.Matrix4f
-import org.joml.Matrix4fStack
+import me.gavin.breakout.renderer.VertexBuffer
 import org.lwjgl.BufferUtils
 import org.lwjgl.glfw.GLFW
 import org.lwjgl.glfw.GLFWErrorCallback
@@ -19,19 +20,11 @@ object Breakout {
 
     private var window: Long = 0L
 
-    val shaders = hashMapOf<String, Shader>()
-    val projectionMatrix = Matrix4f()
-    val transformStack = Matrix4fStack(128)
-
+    val quadRenderer: QuadRenderer
 
     init {
-        init()
-        loop()
-    }
-
-    private fun init() {
+        // Init window and GLFW
         GLFWErrorCallback.createPrint(System.err).set()
-
 
         if (!GLFW.glfwInit())
             throw IllegalStateException("Unable to initialize GLFW")
@@ -63,84 +56,43 @@ object Breakout {
         }
 
         // set identity stack for transformation
-        transformStack.set(Matrix4f())
-        projectionMatrix.setOrtho2D(0f, WIDTH.toFloat(), 0f, HEIGHT.toFloat())
+
 
         GLFW.glfwMakeContextCurrent(window)
         GLFW.glfwSwapInterval(1)
         GLFW.glfwShowWindow(window)
         GL.createCapabilities()
 
-        shaders["default"] = Shader("default", "projection", "transform")
+        val vb = VertexBuffer(GL30.GL_STATIC_DRAW, Float.SIZE_BYTES * 5,
+            0f, 0f,
+            1f, 0f,
+            1f, 1f,
+            0f, 1f
+        )
+        val ib = IndexBuffer(0, 2, 3, 0, 1, 2)
+        quadRenderer = QuadRenderer(vb, ib)
+
+        loop()
     }
 
     private fun loop() {
         println(GL11.glGetString(GL11.GL_VERSION))
         println(GL11.glGetString(GL11.GL_RENDERER))
 
-        val vaoId = GL30.glGenVertexArrays()
-        GL30.glBindVertexArray(vaoId)
-
-        val vboId = GL30.glGenBuffers()
-        GL30.glBindBuffer(GL30.GL_ARRAY_BUFFER, vboId)
-
-        val s = 200f
-        val h = (sqrt(3f) / 2f) * s
-        val halfH = h / 2f
-        val halfS = s / 2f
-
-        val cx = WIDTH / 2.0f
-        val cy = HEIGHT / 2.0f
-        val verticies = floatArrayOf(
-            cx, cy + halfH, 1f, 0f, 0f,
-            cx - halfS, cy - halfH, 0f, 1f, 0f,
-            cx + halfS, cy - halfH, 0f, 0f, 1f
-        )
-
-        val vertexBuf = BufferUtils.createFloatBuffer(verticies.size)
-        vertexBuf.put(verticies)
-        vertexBuf.flip() // prepare buf for reading
-
-        // upload to gpu
-        GL30.glBufferData(GL30.GL_ARRAY_BUFFER, vertexBuf, GL30.GL_STATIC_DRAW)
-
-        // setup vertex attribs
-
-        // vec2f pos
-        GL30.glEnableVertexAttribArray(0)
-        GL30.glVertexAttribPointer(0, 2, GL11.GL_FLOAT, false, 20, 0)
-        // vec3f color
-        GL30.glEnableVertexAttribArray(1)
-        GL30.glVertexAttribPointer(1, 3, GL11.GL_FLOAT, true, 20, 8)
-
-        GL30.glBindBuffer(GL30.GL_ARRAY_BUFFER, 0)
-        GL30.glBindVertexArray(0)
-
+        val cx = WIDTH / 2f
+        val cy = HEIGHT / 2f
 
         GL11.glClearColor(0.1f, 0.1f, 0.1f, 1.0f)
-        val shader = shaders["default"]
+        quadRenderer.bind()
         while (!GLFW.glfwWindowShouldClose(window)) {
-            GL11.glClear(GL11.GL_COLOR_BUFFER_BIT or GL11.GL_DEPTH_BUFFER_BIT)
+            quadRenderer.clear()
 
-            transformStack.pushMatrix()
-            transformStack.translate(cx, cy, 0f)
-            transformStack.rotate(GLFW.glfwGetTime().toFloat(), 0f, 0f, 1f)
-            transformStack.translate(-cx, -cy, 0f)
-
-            shader?.bind()
-            shader?.setUniformMatrix4f("projection", false, projectionMatrix)
-            shader?.setUniformMatrix4f("transform", false, transformStack)
-
-            GL30.glBindVertexArray(vaoId)
-            GL30.glDrawArrays(GL11.GL_TRIANGLES, 0, 3)
+            quadRenderer.drawQuad(cx, cy, 100f, 100f)
 
             GLFW.glfwSwapBuffers(window)
             GLFW.glfwPollEvents()
-
-            transformStack.popMatrix()
         }
 
-        GL30.glDeleteVertexArrays(vaoId)
-        GL30.glDeleteBuffers(vboId)
+        quadRenderer.free()
     }
 }
