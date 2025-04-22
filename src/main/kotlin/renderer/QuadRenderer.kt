@@ -13,7 +13,8 @@ class QuadRenderer(val vb: VertexBuffer, val ib: IndexBuffer): Buffer {
     val vao: Int
     val projectionMatrix = Matrix4f()
     val transformStack = Matrix4fStack(128)
-    private val matrixBuffer = MemoryUtil.memAllocFloat(16)
+    private val projectionBuffer = MemoryUtil.memAllocFloat(16)
+    private val transformBuffer = MemoryUtil.memAllocFloat(16)
     private val shader = Shader("default", "projection", "transform", "color")
 
     init {
@@ -32,9 +33,10 @@ class QuadRenderer(val vb: VertexBuffer, val ib: IndexBuffer): Buffer {
             .translate(x, y, 0f)
             .scale(w, h, 1f)
 
-        transformStack.get(matrixBuffer)
-        shader.setUniformMatrix4f("projection", false, projectionMatrix)
-        shader.setUniformMatrix4f("transform", false, matrixBuffer)
+        projectionMatrix.get(projectionBuffer)
+        transformStack.get(transformBuffer)
+        shader.setUniformMatrix4f("projection", false, projectionBuffer)
+        shader.setUniformMatrix4f("transform", false, transformBuffer)
         shader.setUniform3f("color", r, g, b)
 
         GL30.glDrawElements(GL11.GL_TRIANGLES, ib.size, GL11.GL_UNSIGNED_INT, 0)
@@ -55,7 +57,9 @@ class QuadRenderer(val vb: VertexBuffer, val ib: IndexBuffer): Buffer {
     override fun free() {
         vb.free()
         ib.free()
-        MemoryUtil.memFree(matrixBuffer)
+        GL30.glDeleteVertexArrays(vao)
+        MemoryUtil.memFree(transformBuffer)
+        MemoryUtil.memFree(projectionBuffer)
     }
 
     fun clear() {
