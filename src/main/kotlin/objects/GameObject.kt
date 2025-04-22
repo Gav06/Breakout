@@ -22,26 +22,4 @@ abstract class GameObject {
                 && (pos.y + size.y > obj.pos.y)
                 && (pos.y < obj.pos.y + obj.size.y)
     }
-
-    fun isCollidedHorizontal(obj: GameObject): Boolean {
-        if ((pos.y + size.y > obj.pos.y) && (pos.y < obj.pos.y + obj.size.y)) {
-            val leftCollision = pos.x < obj.pos.x + obj.size.x
-            val rightCollision = pos.x + size.x > obj.pos.x
-
-            return leftCollision && rightCollision
-        }
-
-        return false
-    }
-
-    fun isCollidedVertically(obj: GameObject): Boolean {
-        if ((pos.x < obj.pos.x + obj.size.x) && (pos.x + size.x > obj.pos.x)) {
-            val topCollision = pos.y < obj.pos.y + obj.size.y
-            val bottomCollision = pos.y + size.y > obj.pos.y
-
-            return topCollision && bottomCollision
-        }
-
-        return false
-    }
 }
