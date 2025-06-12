@@ -2,13 +2,13 @@ package me.gavin.breakout
 
 import me.gavin.breakout.objects.Ball
 import me.gavin.breakout.objects.Brick
-import me.gavin.breakout.objects.GameObject
 import me.gavin.breakout.objects.Paddle
 import me.gavin.breakout.renderer.IndexBuffer
 import me.gavin.breakout.renderer.QuadRenderer
 import me.gavin.breakout.renderer.VertexBuffer
 import org.lwjgl.glfw.GLFW
 import org.lwjgl.glfw.GLFWErrorCallback
+import org.lwjgl.glfw.GLFWKeyCallbackI
 import org.lwjgl.opengl.GL
 import org.lwjgl.opengl.GL11
 import org.lwjgl.opengl.GL30
@@ -21,15 +21,27 @@ object Breakout {
 
     var window: Long = 0L
 
+    private var running = true
+
     val quadRenderer: QuadRenderer
     val bricks = ArrayList<Brick>()
     val paddle = Paddle()
 
-    private const val ballSize = 10f
-    private const val ballSpeed = 7.5f;
+    private const val BALL_SIZE = 10f
+    private const val BALL_SPEED = 7.5f;
 
-    var ball: Ball?
+    var ball: Ball? = null
     val ballSpawnTimer = Stopwatch()
+
+    val keyCallback = GLFWKeyCallbackI { window: Long, key: Int, scancode: Int, action: Int, mods: Int ->
+        if (action != GLFW.GLFW_PRESS)
+            return@GLFWKeyCallbackI
+
+        when (key) {
+            GLFW.GLFW_KEY_ESCAPE -> running = false
+            GLFW.GLFW_KEY_R -> { initGameObjects(); ballSpawnTimer.start() }
+        }
+    }
 
     var partialTicks: Float = 0.0f
 
@@ -66,6 +78,7 @@ object Breakout {
             )
         }
 
+        GLFW.glfwSetKeyCallback(window, keyCallback)
         GLFW.glfwMakeContextCurrent(window)
         GLFW.glfwSwapInterval(1)
         GL.createCapabilities()
@@ -76,12 +89,22 @@ object Breakout {
         val ib = IndexBuffer(0, 2, 3, 0, 1, 2)
         quadRenderer = QuadRenderer(vb, ib)
 
+        initGameObjects()
+        loop()
+    }
+
+    private fun initGameObjects() {
         val brickWidth = WIDTH / 10f
         val brickHeight = HEIGHT / 25f
 
         val horizAmt = brickWidth.toInt()
         val vertAmt = (HEIGHT / 2) / brickHeight.toInt()
 
+        paddle.init()
+        ball = spawnBall()
+
+        if (bricks.isNotEmpty())
+            bricks.clear()
 
         for (x in (0..horizAmt)) {
             for (y in (0..vertAmt)) {
@@ -90,11 +113,6 @@ object Breakout {
                 bricks.add(brick)
             }
         }
-
-        paddle.init()
-        ball = spawnBall()
-
-        loop()
     }
 
     private fun loop() {
@@ -115,7 +133,12 @@ object Breakout {
         ballSpawnTimer.start()
 
         quadRenderer.bind()
-        while (!GLFW.glfwWindowShouldClose(window)) {
+        while (running) {
+            if (GLFW.glfwWindowShouldClose(window)) {
+                running = false
+                break
+            }
+
             val currTime = GLFW.glfwGetTime()
             val deltaTime = currTime - lastTime
             lastTime = currTime
@@ -153,13 +176,14 @@ object Breakout {
 
             GLFW.glfwSwapBuffers(window)
             GLFW.glfwPollEvents()
+
         }
 
         quadRenderer.free()
     }
 
     fun spawnBall(): Ball {
-        val b = Ball(ballSize, ballSpeed)
+        val b = Ball(BALL_SIZE, BALL_SPEED)
         b.init()
         return b
     }
