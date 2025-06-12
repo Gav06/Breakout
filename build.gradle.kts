@@ -1,5 +1,6 @@
 plugins {
     kotlin("jvm") version "2.1.20"
+    id("com.github.johnrengelman.shadow") version "8.1.1"
 }
 
 group = "me.gavin"
@@ -61,6 +62,24 @@ tasks.jar {
     manifest {
         attributes["Main-Class"] = "me.gavin.breakout.MainKt"
     }
+}
+
+tasks.shadowJar {
+    archiveClassifier.set("")
+    manifest {
+        attributes["Main-Class"] = "me.gavin.breakout.MainKt"
+    }
+
+    // Merge service files to prevent conflicts
+    mergeServiceFiles()
+
+    // Exclude signature files from dependencies
+    exclude("META-INF/*.SF", "META-INF/*.DSA", "META-INF/*.RSA")
+}
+
+// Make shadowJar the default jar task
+tasks.build {
+    dependsOn(tasks.shadowJar)
 }
 
 kotlin {
