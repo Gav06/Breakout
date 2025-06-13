@@ -30,10 +30,10 @@ object Breakout {
     private const val BALL_SIZE = 10f
     private const val BALL_SPEED = 7.5f;
 
-    var ball: Ball? = null
-    val ballSpawnTimer = Stopwatch()
+    private var ball: Ball? = null
+    private val ballSpawnTimer = Stopwatch()
 
-    val keyCallback = GLFWKeyCallbackI { window: Long, key: Int, scancode: Int, action: Int, mods: Int ->
+    private val keyCallback = GLFWKeyCallbackI { window: Long, key: Int, scancode: Int, action: Int, mods: Int ->
         if (action != GLFW.GLFW_PRESS)
             return@GLFWKeyCallbackI
 
@@ -43,7 +43,7 @@ object Breakout {
         }
     }
 
-    var partialTicks: Float = 0.0f
+    private var partialTicks: Float = 0.0f
 
     init {
         // Init window and GLFW
@@ -146,43 +146,50 @@ object Breakout {
 
             // tick pass when needed
             while (accumulator >= tickInterval) {
-                paddle.update()
-
-                if (ball == null) {
-                    if (ballSpawnTimer.isRunning()) {
-                        if (ballSpawnTimer.hasElapsed(1.5)) {
-                            ballSpawnTimer.stop()
-                            ball = spawnBall()
-                        }
-                    } else {
-                        ballSpawnTimer.start()
-                    }
-                } else {
-                    if (ball!!.outOfBounds) ball = null else ball!!.update()
-                }
-
-                bricks.forEach { it.update() }
-
+                update()
                 accumulator -= tickInterval
             }
 
             partialTicks = (accumulator / tickInterval).toFloat()
 
-            quadRenderer.clear()
-            // render pass
-            paddle.render()
-            ball?.render()
-            bricks.forEach { it.render() }
+            render()
 
             GLFW.glfwSwapBuffers(window)
             GLFW.glfwPollEvents()
-
         }
 
         quadRenderer.free()
     }
 
-    fun spawnBall(): Ball {
+    private fun update() {
+        paddle.update()
+
+        if (ball == null) {
+            if (ballSpawnTimer.isRunning()) {
+                if (ballSpawnTimer.hasElapsed(1.5)) {
+                    ballSpawnTimer.stop()
+                    ball = spawnBall()
+                }
+            } else {
+                ballSpawnTimer.start()
+            }
+        } else {
+            if (ball!!.outOfBounds) ball = null else ball!!.update()
+        }
+
+        bricks.forEach { it.update() }
+    }
+
+    private fun render() {
+        quadRenderer.clear()
+
+        // render pass
+        paddle.render()
+        ball?.render()
+        bricks.forEach { it.render() }
+    }
+
+    private fun spawnBall(): Ball {
         val b = Ball(BALL_SIZE, BALL_SPEED)
         b.init()
         return b
